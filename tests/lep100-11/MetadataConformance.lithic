@@ -1,0 +1,15 @@
+module LEP100_11::MetadataConformance
+
+use Harness::Assert
+use LSCL::Metadata
+
+public fn test_id_template_padding() {
+  let s = MetadataStorage{ base_uri_template: "ipfs://CID/{id}.json" }
+  let out = Metadata.uri(s, 171).unwrap()
+  Assert.eq_str(out, "ipfs://CID/00000000000000000000000000000000000000000000000000000000000000ab.json", "expand")
+}
+
+public fn test_missing_metadata_errors() {
+  let s = MetadataStorage{ base_uri_template: "" }
+  Assert.expect_revert(|| { Metadata.uri(s, 1).unwrap() }, "MetadataUnavailable")
+}

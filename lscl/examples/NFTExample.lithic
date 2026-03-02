@@ -1,0 +1,11 @@
+requires TOKEN_TRANSFER
+
+use LSCL::Assets::NFT
+
+contract ExampleNFT {
+  state { s: NFT.NFTStorage }
+
+  public fn mint(to: address, id: u256) { NFT.mint(self.s, to, id).unwrap() }
+  public fn approve(to: address, id: u256) { NFT.approve(self.s, to, id).unwrap() }
+  public fn transfer(from: address, to: address, id: u256) { NFT.transfer(self.s, from, to, id).unwrap() }
+}

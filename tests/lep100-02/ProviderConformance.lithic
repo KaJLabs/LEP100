@@ -1,0 +1,34 @@
+module LEP100_02::ProviderConformance
+
+use Harness::Assert
+use Harness::MockAIProvider
+
+contract ProviderHarness {
+  state { provider: address }
+
+  constructor(p: address) { self.provider = p }
+
+  public fn verify(receipt_hash: bytes32, sig: bytes) -> bool {
+    return MockAIProvider(self.provider).verify_signature(receipt_hash, sig)
+  }
+}
+
+public fn test_provider_signature_validates() {
+  let p = deploy(MockAIProvider)
+  let h = deploy(ProviderHarness, p)
+
+  let rh = sys.hash_sha256("receipt")
+  p.allow_receipt_hash(rh, true)
+
+  Assert.eq_bool(h.verify(rh, "sig"), true, "should verify")
+}
+
+public fn test_provider_signature_rejects() {
+  let p = deploy(MockAIProvider)
+  let h = deploy(ProviderHarness, p)
+
+  let rh = sys.hash_sha256("receipt")
+  p.allow_receipt_hash(rh, false)
+
+  Assert.eq_bool(h.verify(rh, "sig"), false, "should reject")
+}

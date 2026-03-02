@@ -1,0 +1,36 @@
+module LSCL::Assets::SharedNFT
+
+use LSCL::Core::Errors
+use LSCL::Core::Events
+
+type address
+type u256
+
+struct SharedVaultStorage {
+  vaulted: bool
+  shares_total: u256
+  shares: map[address]u256
+}
+
+public fn vault(s: SharedVaultStorage) -> Result<(), Errors::CoreError> {
+  if s.vaulted { return Err(Errors::CoreError::InvalidArgument) }
+  s.vaulted = true
+  Events.emit("Vaulted", {})
+  return Ok(())
+}
+
+public fn mint_shares(s: SharedVaultStorage, to: address, amount: u256) -> Result<(), Errors::CoreError> {
+  if !s.vaulted { return Err(Errors::CoreError::InvalidArgument) }
+  s.shares_total = s.shares_total + amount
+  s.shares.set(to, s.shares.get(to).unwrap_or(0) + amount)
+  Events.emit("SharesMinted", { "to": to, "amount": amount })
+  return Ok(())
+}
+
+public fn balance_of(s: SharedVaultStorage, who: address) -> u256 {
+  return s.shares.get(who).unwrap_or(0)
+}
+
+public fn total_supply(s: SharedVaultStorage) -> u256 {
+  return s.shares_total
+}

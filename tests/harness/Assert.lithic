@@ -1,0 +1,13 @@
+module Harness::Assert
+
+public fn ok(cond: bool, msg: string) { if !cond { revert(msg) } }
+
+public fn eq_u256(a: u256, b: u256, msg: string) { if a != b { revert(msg) } }
+public fn eq_u64(a: u64, b: u64, msg: string) { if a != b { revert(msg) } }
+public fn eq_bool(a: bool, b: bool, msg: string) { if a != b { revert(msg) } }
+public fn eq_str(a: string, b: string, msg: string) { if a != b { revert(msg) } }
+
+public fn expect_revert(call: fn() -> void, reason: string) {
+  let r = sys.try_call(call)
+  if r.ok { revert("expected revert: " + reason) }
+}

@@ -1,0 +1,25 @@
+module LSCL::Metadata
+
+type u256
+
+enum MetadataError { MetadataUnavailable }
+
+struct MetadataStorage {
+  base_uri_template: string
+}
+
+public fn to_hex_64(id: u256) -> string {
+  let raw = sys.hex_lower(id)
+  let pad_len = 64 - raw.length
+  return sys.repeat("0", pad_len) + raw
+}
+
+public fn expand_template(tpl: string, id: u256) -> string {
+  if !sys.string_contains(tpl, "{id}") { return tpl }
+  return sys.string_replace_all(tpl, "{id}", to_hex_64(id))
+}
+
+public fn uri(s: MetadataStorage, id: u256) -> Result<string, MetadataError> {
+  if s.base_uri_template == "" { return Err(MetadataError::MetadataUnavailable) }
+  return Ok(expand_template(s.base_uri_template, id))
+}

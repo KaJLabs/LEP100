@@ -1,0 +1,46 @@
+module LSCL::MarketplaceHooks
+
+type address
+type u256
+type u8
+type bytes
+
+enum AssetKind { FT, NFT, MT }
+
+struct AssetRef { kind: AssetKind, contract: address, id: u256, amount: u256 }
+struct HookResult { ok: bool, reason: string }
+
+enum HookError { HookRejected }
+
+const KIND_NFT: u8 = 0
+const KIND_MT: u8 = 1
+
+interface IMarketplaceHooks {
+  public fn on_buy(
+    buyer: address,
+    seller: address,
+    token_contract: address,
+    token_kind: u8,
+    token_id: u256,
+    amount: u256,
+    price: u256,
+    payment_asset: AssetRef
+  ) -> HookResult
+}
+
+public fn call_on_buy(
+  hook_target: address,
+  buyer: address,
+  seller: address,
+  token_contract: address,
+  token_kind: u8,
+  token_id: u256,
+  amount: u256,
+  price: u256,
+  payment_asset: AssetRef
+) -> Result<(), HookError> {
+  if !sys.supports_interface(hook_target, "IMarketplaceHooks") { return Ok(()) }
+  let r = IMarketplaceHooks(hook_target).on_buy(buyer, seller, token_contract, token_kind, token_id, amount, price, payment_asset)
+  if !r.ok { return Err(HookError::HookRejected) }
+  return Ok(())
+}

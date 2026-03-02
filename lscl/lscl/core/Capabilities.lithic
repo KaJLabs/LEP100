@@ -1,0 +1,20 @@
+module LSCL::Core::Capabilities
+
+use LSCL::Core::Errors
+
+// Capability labels (string) used by lithic/lithovm permission gating.
+const AI_CALL: string = "AI_CALL"
+const TOKEN_TRANSFER: string = "TOKEN_TRANSFER"
+const SYS_CALL: string = "SYS_CALL"
+const ZK_VERIFY: string = "ZK_VERIFY"
+const PPAL_VERIFY: string = "PPAL_VERIFY"
+const PPAL_CONSUME: string = "PPAL_CONSUME"
+const BRIDGE_MINT: string = "BRIDGE_MINT"
+const BRIDGE_BURN: string = "BRIDGE_BURN"
+
+// Best-effort helper: relies on a hypothetical syscall `sys.require_capability`.
+public fn require(cap: string) -> Result<(), Errors::CoreError> {
+  let ok = sys.require_capability(cap) // placeholder syscall
+  if !ok { return Err(Errors::CoreError::CapabilityMissing) }
+  return Ok(())
+}

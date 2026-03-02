@@ -1,0 +1,17 @@
+site_name: LEP100 Documentation
+nav:
+  - Home: README.md
+  - LEP100-1: lep100-1/LEP100-1.md
+  - LEP100-2: lep100-2/LEP100-2.md
+  - LEP100-3: lep100-3/LEP100-3.md
+  - LEP100-4: lep100-4/LEP100-4.md
+  - LEP100-5: lep100-5/LEP100-5.md
+  - LEP100-6: lep100-6/LEP100-6.md
+  - LEP100-7: lep100-7/LEP100-7.md
+  - LEP100-8: lep100-8/LEP100-8.md
+  - LEP100-9: lep100-9/LEP100-9.md
+  - LEP100-10: lep100-10/LEP100-10.md
+  - LEP100-11: lep100-11/LEP100-11.md
+  - LEP100-12: lep100-12/LEP100-12.md
+  - LEP100-13: lep100-13/LEP100-13.md
+  - LEP100-14: lep100-14/LEP100-14.md

@@ -1,0 +1,23 @@
+module LEP100_10::RoyaltyConformance
+
+use Harness::Assert
+use LSCL::Royalty
+
+public fn test_dust_to_first() {
+  let parts = [
+    RoyaltyPart{ recipient: 0x1111, bps: 200 },
+    RoyaltyPart{ recipient: 0x2222, bps: 300 }
+  ]
+  let q = Royalty.quote(999, parts).unwrap()
+  Assert.eq_u256(q.total_amount, 49, "total")
+  Assert.eq_u256(q.amounts[0], 20, "dust to first")
+  Assert.eq_u256(q.amounts[1], 29, "second")
+}
+
+public fn test_reject_over_100pct() {
+  let parts = [
+    RoyaltyPart{ recipient: 0x1111, bps: 6000 },
+    RoyaltyPart{ recipient: 0x2222, bps: 5000 }
+  ]
+  Assert.expect_revert(|| { Royalty.quote(1000, parts).unwrap() }, "InvalidBps")
+}

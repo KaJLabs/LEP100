@@ -1,0 +1,9 @@
+module Harness::Determinism
+
+public fn state_hash() -> bytes32 {
+  return sys.state_hash()
+}
+
+public fn eq_bytes32(a: bytes32, b: bytes32, msg: string) {
+  if a != b { revert(msg) }
+}

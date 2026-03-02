@@ -1,0 +1,44 @@
+module Harness::MockMarketplace
+
+use LSCL::MarketplaceHooks
+
+contract MockMarketplace {
+  state { locked: bool }
+
+  fn lock() { require(!self.locked, "reentrancy"); self.locked = true }
+  fn unlock() { self.locked = false }
+
+  public fn buy(hook_target: address, buyer: address, seller: address, token_contract: address, token_id: u256, price: u256) {
+    lock()
+
+    MarketplaceHooks.call_on_buy(
+      hook_target,
+      buyer,
+      seller,
+      token_contract,
+      MarketplaceHooks.KIND_NFT,
+      token_id,
+      1,
+      price,
+      MarketplaceHooks.AssetRef{ kind: MarketplaceHooks.AssetKind::FT, contract: 0x0, id: 0, amount: price }
+    ).unwrap()
+
+    sys.emit_event("Bought", { "buyer": buyer, "token_id": token_id, "price": price })
+
+    unlock()
+  }
+}
+
+contract EmptyContract {}
+
+contract AcceptHook {
+  public fn on_buy(...) -> MarketplaceHooks.HookResult {
+    return MarketplaceHooks.HookResult{ ok: true, reason: "" }
+  }
+}
+
+contract RejectHook {
+  public fn on_buy(...) -> MarketplaceHooks.HookResult {
+    return MarketplaceHooks.HookResult{ ok: false, reason: "deny" }
+  }
+}

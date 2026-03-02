@@ -1,0 +1,28 @@
+module LEP100_08::SharedNFTConformance
+
+use Harness::Assert
+
+contract SharedVault {
+  state { vaulted: bool, shares_total: u256, shares: map[address]u256 }
+
+  public fn vault() { require(!self.vaulted, "AlreadyVaulted"); self.vaulted = true; sys.emit_event("Vaulted", {}) }
+
+  public fn mint_shares(to: address, amount: u256) {
+    require(self.vaulted, "NotVaulted")
+    self.shares_total += amount
+    self.shares.set(to, self.shares.get(to).unwrap_or(0) + amount)
+    sys.emit_event("SharesMinted", { "to": to, "amount": amount })
+  }
+
+  public fn shares_total_supply() -> u256 { return self.shares_total }
+  public fn shares_balance_of(a: address) -> u256 { return self.shares.get(a).unwrap_or(0) }
+}
+
+public fn test_vault_then_shares() {
+  let v = deploy(SharedVault)
+  Assert.expect_revert(|| { v.mint_shares(caller, 10) }, "NotVaulted")
+  v.vault()
+  v.mint_shares(caller, 10)
+  Assert.eq_u256(v.shares_total_supply(), 10, "total")
+  Assert.eq_u256(v.shares_balance_of(caller), 10, "balance")
+}

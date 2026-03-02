@@ -1,0 +1,23 @@
+module LSCL::AI::Receipts
+
+use LSCL::Core::Errors
+use LSCL::AI::Provider
+
+type bytes
+type bytes32
+type address
+
+// Receipt verification profile: provider signature and optional onchain registry checks.
+struct ReceiptVerifyConfig {
+  require_provider_interface: bool
+  // optional: allowlist of providers
+  allowlist: map[address]bool
+}
+
+public fn verify(cfg: ReceiptVerifyConfig, provider: address, r: Provider::ProviderReceiptV1, sig: bytes) -> Result<bytes32, Errors::CoreError> {
+  if cfg.allowlist.length > 0 {
+    if !cfg.allowlist.get(provider).unwrap_or(false) { return Err(Errors::CoreError::Unauthorized) }
+  }
+  Provider.verify_provider_signature(provider, r, sig).unwrap()
+  return Ok(Provider.receipt_hash(r))
+}

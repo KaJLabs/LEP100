@@ -1,0 +1,17 @@
+module LSCL::Core::InterfaceIds
+
+// Canonical interface id strings for sys.supports_interface()
+// Keep these stable.
+
+const I_AI_PROVIDER: string = "LSCL.IAIProvider.v1"
+const I_RECEIPT_VERIFIER: string = "LSCL.IReceiptVerifier.v1"
+const I_ZK_VERIFIER: string = "LSCL.IZKVerifier.v1"
+const I_NFT: string = "LEP100.INFT.v1"
+const I_COMPOSABLE: string = "LEP100.IComposableNFT.v1"
+const I_SHARED: string = "LEP100.ISharedNFT.v1"
+const I_MULTITOKEN: string = "LEP100.IMultiToken.v1"
+const I_ROYALTY: string = "LEP100.IRoyalty.v1"
+const I_METADATA: string = "LEP100.IMetadata.v1"
+const I_MARKET_HOOKS: string = "LEP100.IMarketplaceHooks.v1"
+const I_BRIDGE: string = "LEP100.IBridge.v1"
+const I_PPAL: string = "LEP100.IPPAL.v1"

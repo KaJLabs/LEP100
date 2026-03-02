@@ -1,0 +1,16 @@
+module Harness::MockZKVerifier
+
+type bytes
+type bytes32
+
+contract MockZKVerifier {
+  state { allow: map[bytes32]bool }
+
+  public fn set_allowed(binding: bytes32, yes: bool) {
+    self.allow.set(binding, yes)
+  }
+
+  public fn verify(binding: bytes32, proof: bytes) -> bool {
+    return self.allow.get(binding).unwrap_or(false)
+  }
+}

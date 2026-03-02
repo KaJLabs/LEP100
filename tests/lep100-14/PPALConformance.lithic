@@ -1,0 +1,96 @@
+module LEP100_14::PPALConformance
+
+use Harness::Assert
+use LSCL::PPAL
+use Harness::MockPPALVerifier
+
+contract PPALHarness {
+  state { s: PPALStorage }
+
+  constructor(verifier: address) {
+    self.s.verifier = verifier
+    self.s.used = map[bytes32]bool{}
+    self.s.revoked = map[bytes32]bool{}
+  }
+
+  public fn consume(p: PPALProof) { PPAL.consume(self.s, p).unwrap() }
+  public fn revoke(c: bytes32) { PPAL.revoke(self.s, c) }
+}
+
+public fn test_ppal_replay_prevention() {
+  let v = deploy(MockPPALVerifier)
+  let h = deploy(PPALHarness, v)
+
+  let commitment = 0xAAAA
+  let scope = "app:lithosphere:market"
+  let epoch: u64 = 123
+  let nullifier = 0xBBBB
+
+  v.set_allowed(commitment, scope, epoch, nullifier, true)
+
+  let p = PPALProof{
+    commitment: commitment,
+    association_type: 1,
+    scope: scope,
+    epoch: epoch,
+    nullifier: nullifier,
+    proof: "proof",
+    account_a: AccountRef{ chain_id: 777777, addr: 0x1111 },
+    account_b: AccountRef{ chain_id: 1, addr: 0x2222 }
+  }
+
+  h.consume(p)
+  Assert.expect_revert(|| { h.consume(p) }, "Replay")
+}
+
+public fn test_ppal_scope_binding() {
+  let v = deploy(MockPPALVerifier)
+  let h = deploy(PPALHarness, v)
+
+  let commitment = 0xCAFE
+  let good_scope = "app:lithosphere:bridge"
+  let bad_scope = "app:lithosphere:other"
+  let epoch: u64 = 5
+  let nullifier = 0xBEEF
+
+  v.set_allowed(commitment, good_scope, epoch, nullifier, true)
+
+  let p_bad = PPALProof{
+    commitment: commitment,
+    association_type: 0,
+    scope: bad_scope,
+    epoch: epoch,
+    nullifier: nullifier,
+    proof: "proof",
+    account_a: AccountRef{ chain_id: 1, addr: 0xAAAA },
+    account_b: AccountRef{ chain_id: 137, addr: 0xBBBB }
+  }
+
+  Assert.expect_revert(|| { h.consume(p_bad) }, "InvalidProof")
+}
+
+public fn test_ppal_revocation_blocks() {
+  let v = deploy(MockPPALVerifier)
+  let h = deploy(PPALHarness, v)
+
+  let commitment = 0xDDDD
+  let scope = "app:lithosphere:market"
+  let epoch: u64 = 1
+  let nullifier = 0xEEEE
+
+  v.set_allowed(commitment, scope, epoch, nullifier, true)
+
+  let p = PPALProof{
+    commitment: commitment,
+    association_type: 0,
+    scope: scope,
+    epoch: epoch,
+    nullifier: nullifier,
+    proof: "proof",
+    account_a: AccountRef{ chain_id: 1, addr: 0xAAAA },
+    account_b: AccountRef{ chain_id: 137, addr: 0xBBBB }
+  }
+
+  h.revoke(commitment)
+  Assert.expect_revert(|| { h.consume(p) }, "Revoked")
+}

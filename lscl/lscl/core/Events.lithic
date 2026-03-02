@@ -1,0 +1,8 @@
+module LSCL::Core::Events
+
+// Small helper for emitting standardized events.
+// Note: sys.emit_event(name, fields) is assumed.
+
+public fn emit(name: string, fields: map[string]any) {
+  sys.emit_event(name, fields)
+}

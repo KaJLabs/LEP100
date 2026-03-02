@@ -1,0 +1,17 @@
+module Harness::MockAIProvider
+
+type bytes
+type bytes32
+type u256
+
+contract MockAIProvider {
+  state { allow: map[bytes32]bool }
+
+  public fn allow_receipt_hash(h: bytes32, yes: bool) {
+    self.allow.set(h, yes)
+  }
+
+  public fn verify_signature(receipt_hash: bytes32, sig: bytes) -> bool {
+    return self.allow.get(receipt_hash).unwrap_or(false)
+  }
+}

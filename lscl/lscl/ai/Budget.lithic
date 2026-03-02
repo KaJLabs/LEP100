@@ -1,0 +1,46 @@
+module LSCL::AI::Budget
+
+use LSCL::Core::Errors
+
+type address
+type u256
+type u64
+type bytes32
+
+// Deterministic budgeting with optional epoch resets.
+struct BudgetConfig {
+  max_per_call: u256
+  max_per_user: u256
+  // epoch length in blocks; 0 disables epoch resets
+  epoch_blocks: u64
+}
+
+struct BudgetState {
+  // spent_by_user_epoch[user][epoch] => spent
+  spent_by_user_epoch: map[address]map[u64]u256
+}
+
+public fn current_epoch(cfg: BudgetConfig) -> u64 {
+  if cfg.epoch_blocks == 0 { return 0 }
+  return sys.block_number() / cfg.epoch_blocks
+}
+
+public fn enforce_user_budget(cfg: BudgetConfig, st: BudgetState, user: address, spend: u256) -> Result<(), Errors::CoreError> {
+  if spend > cfg.max_per_call { return Err(Errors::CoreError::InvalidArgument) }
+
+  let epoch = current_epoch(cfg)
+  let m = st.spent_by_user_epoch.get(user).unwrap_or(map[u64]u256{})
+  let s = m.get(epoch).unwrap_or(0)
+
+  if s + spend > cfg.max_per_user { return Err(Errors::CoreError::Unauthorized) } // "budget exceeded"
+  m.set(epoch, s + spend)
+  st.spent_by_user_epoch.set(user, m)
+  return Ok(())
+}
+
+// Optional escrow lock adapter (syscall placeholder).
+public fn escrow_lock(token_id: string, from: address, amount: u256, escrow_id: bytes32) -> Result<(), Errors::CoreError> {
+  let ok = sys.bank.escrow_lock(token_id, from, amount, escrow_id) // placeholder
+  if !ok { return Err(Errors::CoreError::InvalidArgument) }
+  return Ok(())
+}

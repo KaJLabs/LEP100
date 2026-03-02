@@ -1,0 +1,17 @@
+module LSCL::Core::Errors
+
+// Standardized LSCL error codes for LEP100 modules.
+
+enum CoreError {
+  Unauthorized,
+  InvalidArgument,
+  NotFound,
+  NotImplemented,
+  Overflow,
+  Underflow,
+  Replay,
+  InvalidProof,
+  Revoked,
+  CapabilityMissing,
+  Timeout,
+}

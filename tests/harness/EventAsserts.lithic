@@ -1,0 +1,22 @@
+module Harness::EventAsserts
+
+public fn last_name() -> string { return sys.events.last().name }
+
+public fn expect_last(name: string) {
+  if last_name() != name { revert("bad event: " + last_name()) }
+}
+
+public fn expect_last_has(key: string) {
+  let e = sys.events.last()
+  if !e.fields.contains(key) { revert("missing field: " + key) }
+}
+
+public fn expect_last_eq_u256(key: string, v: u256) {
+  let e = sys.events.last()
+  if e.fields[key] != v { revert("field mismatch: " + key) }
+}
+
+public fn expect_last_eq_str(key: string, v: string) {
+  let e = sys.events.last()
+  if e.fields[key] != v { revert("field mismatch: " + key) }
+}

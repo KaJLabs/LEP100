@@ -1,0 +1,28 @@
+module LSCL::AI::ZKExecution
+
+use LSCL::Core::Errors
+use LSCL::Core::InterfaceIds
+
+type bytes
+type bytes32
+type address
+
+interface IZKVerifier {
+  public fn verify(binding: bytes32, proof: bytes) -> bool
+}
+
+// binding = H("ZK_BIND", model_hash, input_hash, output_hash)
+// Circuit/model registries can be layered on top.
+public fn binding_hash(model_hash: bytes32, input_hash: bytes32, output_hash: bytes32) -> bytes32 {
+  return sys.hash_sha256(sys.encode("ZK_BIND", model_hash, input_hash, output_hash))
+}
+
+public fn require_valid(verifier: address, model_hash: bytes32, input_hash: bytes32, output_hash: bytes32, proof: bytes) -> Result<(), Errors::CoreError> {
+  if !sys.supports_interface(verifier, InterfaceIds::I_ZK_VERIFIER) {
+    return Err(Errors::CoreError::NotImplemented)
+  }
+  let b = binding_hash(model_hash, input_hash, output_hash)
+  let ok = IZKVerifier(verifier).verify(b, proof)
+  if !ok { return Err(Errors::CoreError::InvalidProof) }
+  return Ok(())
+}

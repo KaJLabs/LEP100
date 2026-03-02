@@ -1,0 +1,41 @@
+module LSCL::AI::Provider
+
+use LSCL::Core::Errors
+use LSCL::Core::Hashing
+use LSCL::Core::InterfaceIds
+
+type bytes
+type bytes32
+type u256
+type u64
+type address
+
+// LEP100-2 canonical receipt payload (logical fields).
+struct ProviderReceiptV1 {
+  request_id: bytes32
+  model_hash: bytes32
+  input_hash: bytes32
+  output_hash: bytes32
+  cost_used: u256
+  timestamp: u64
+  provider: address
+}
+
+interface IAIProvider {
+  public fn verify_signature(receipt_hash: bytes32, signature: bytes) -> bool
+}
+
+// Canonical receipt hash (LEP100-4 will define final layout; this is a stable tagged encoding).
+public fn receipt_hash(r: ProviderReceiptV1) -> bytes32 {
+  return sys.hash_sha256(sys.encode("LEP100_RECEIPT_V1", r.request_id, r.model_hash, r.input_hash, r.output_hash, r.cost_used, r.timestamp, r.provider))
+}
+
+public fn verify_provider_signature(provider: address, r: ProviderReceiptV1, sig: bytes) -> Result<(), Errors::CoreError> {
+  if !sys.supports_interface(provider, InterfaceIds::I_AI_PROVIDER) {
+    return Err(Errors::CoreError::NotImplemented)
+  }
+  let h = receipt_hash(r)
+  let ok = IAIProvider(provider).verify_signature(h, sig)
+  if !ok { return Err(Errors::CoreError::InvalidProof) }
+  return Ok(())
+}

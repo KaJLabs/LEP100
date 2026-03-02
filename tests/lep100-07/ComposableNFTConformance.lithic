@@ -1,0 +1,43 @@
+module LEP100_07::ComposableNFTConformance
+
+use Harness::Assert
+
+enum AssetKind { FT, NFT, MT }
+struct AssetRef { kind: AssetKind, contract: address, id: u256, amount: u256 }
+
+contract Composable {
+  state { owner_of: map[u256]address, children: map[u256]AssetRef[] }
+
+  public fn mint(to: address, id: u256) { self.owner_of.set(id, to) }
+
+  public fn deposit(parent: u256, asset: AssetRef) {
+    require(self.owner_of.get(parent) == caller, "NotAuthorized")
+    let lst = self.children.get(parent).unwrap_or([])
+    lst.push(asset)
+    self.children.set(parent, lst)
+    sys.emit_event("ChildDeposited", { "parent_id": parent })
+  }
+
+  public fn withdraw(parent: u256, idx: u256) {
+    require(self.owner_of.get(parent) == caller, "NotAuthorized")
+    let lst = self.children.get(parent).unwrap_or([])
+    require(idx < lst.length, "OOB")
+    lst.remove(idx)
+    self.children.set(parent, lst)
+    sys.emit_event("ChildWithdrawn", { "parent_id": parent })
+  }
+
+  public fn children_len(parent: u256) -> u256 { return self.children.get(parent).unwrap_or([]).length }
+}
+
+public fn test_deposit_withdraw_auth() {
+  let c = deploy(Composable)
+  c.mint(caller, 1)
+
+  c.deposit(1, AssetRef{ kind: AssetKind::NFT, contract: 0xAAAA, id: 7, amount: 1 })
+  Assert.eq_u256(c.children_len(1), 1, "child recorded")
+
+  sys.as_sender(0xBEEF, || { Assert.expect_revert(|| { c.withdraw(1, 0) }, "NotAuthorized") })
+  c.withdraw(1, 0)
+  Assert.eq_u256(c.children_len(1), 0, "child removed")
+}

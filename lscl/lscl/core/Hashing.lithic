@@ -1,0 +1,13 @@
+module LSCL::Core::Hashing
+
+type bytes
+type bytes32
+
+// Canonical hashing helpers with domain separation.
+public fn sha256_domain(tag: string, payload: bytes) -> bytes32 {
+  return sys.hash_sha256(sys.encode(tag, payload))
+}
+
+public fn sha256_tagged(tag: string, args: any) -> bytes32 {
+  return sys.hash_sha256(sys.encode(tag, args))
+}

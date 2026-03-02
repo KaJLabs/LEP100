@@ -1,0 +1,74 @@
+module LSCL::Bridge
+
+type address
+type u256
+type u32
+type bytes
+type bytes32
+
+enum BridgeError { Replay, UnsupportedChain, InvalidProof }
+
+interface IBridgeVerifier { public fn verify(message_id: bytes32, proof: bytes) -> bool }
+
+struct BridgeStorage {
+  bridge_id: bytes32
+  verifier: address
+  supported: map[u32]bool
+  consumed: map[bytes32]bool
+}
+
+struct BurnIntent { dst_chain_id: u32, from: address, amount: u256, token_id: u256, event_hash: bytes32 }
+
+public fn set_supported_chain(s: BridgeStorage, chain_id: u32, yes: bool) {
+  s.supported.set(chain_id, yes)
+}
+
+fn require_supported(s: BridgeStorage, chain_id: u32) -> Result<(), BridgeError> {
+  if s.supported.get(chain_id).unwrap_or(false) { return Ok(()) }
+  return Err(BridgeError::UnsupportedChain)
+}
+
+fn consume_message(s: BridgeStorage, message_id: bytes32) -> Result<(), BridgeError> {
+  if s.consumed.get(message_id).unwrap_or(false) { return Err(BridgeError::Replay) }
+  s.consumed.set(message_id, true)
+  return Ok(())
+}
+
+fn verify_or_revert(s: BridgeStorage, message_id: bytes32, proof: bytes) -> Result<(), BridgeError> {
+  let ok = IBridgeVerifier(s.verifier).verify(message_id, proof)
+  if !ok { return Err(BridgeError::InvalidProof) }
+  return Ok(())
+}
+
+public fn burn_event_hash(bridge_id: bytes32, dst_chain_id: u32, from: address, amount: u256, token_id: u256, nonce: u256) -> bytes32 {
+  return sys.hash_sha256(sys.encode("BRIDGE_BURN", bridge_id, dst_chain_id, from, amount, token_id, nonce))
+}
+
+public fn bridge_mint_common(
+  s: BridgeStorage,
+  to: address,
+  amount: u256,
+  src_chain_id: u32,
+  src_tx_hash: bytes32,
+  message_id: bytes32,
+  proof: bytes
+) -> Result<(), BridgeError> {
+  require_supported(s, src_chain_id).unwrap()
+  consume_message(s, message_id).unwrap()
+  verify_or_revert(s, message_id, proof).unwrap()
+  sys.emit_event("BridgeMinted", { "to": to, "amount": amount, "src_chain_id": src_chain_id, "src_tx_hash": src_tx_hash, "message_id": message_id })
+  return Ok(())
+}
+
+public fn bridge_burn_common(
+  s: BridgeStorage,
+  from: address,
+  amount: u256,
+  dst_chain_id: u32,
+  nonce: u256
+) -> Result<BurnIntent, BridgeError> {
+  require_supported(s, dst_chain_id).unwrap()
+  let h = burn_event_hash(s.bridge_id, dst_chain_id, from, amount, 0, nonce)
+  sys.emit_event("BridgeBurned", { "from": from, "amount": amount, "dst_chain_id": dst_chain_id, "event_hash": h })
+  return Ok(BurnIntent{ dst_chain_id: dst_chain_id, from: from, amount: amount, token_id: 0, event_hash: h })
+}

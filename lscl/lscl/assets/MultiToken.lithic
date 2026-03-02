@@ -1,0 +1,56 @@
+module LSCL::Assets::MultiToken
+
+use LSCL::Core::Errors
+use LSCL::Core::Events
+
+type address
+type u256
+
+struct MTStorage {
+  bal: map[address]map[u256]u256
+  op: map[address]map[address]bool
+}
+
+public fn is_approved_for_all(s: MTStorage, owner: address, operator: address) -> bool {
+  return s.op.get(owner).unwrap_or(map[address]bool{}).get(operator).unwrap_or(false)
+}
+
+public fn set_approval_for_all(s: MTStorage, operator: address, approved: bool) {
+  let m = s.op.get(caller).unwrap_or(map[address]bool{})
+  m.set(operator, approved)
+  s.op.set(caller, m)
+  Events.emit("ApprovalForAll", { "owner": caller, "operator": operator, "approved": approved })
+}
+
+public fn balance_of(s: MTStorage, owner: address, id: u256) -> u256 {
+  return s.bal.get(owner).unwrap_or(map[u256]u256{}).get(id).unwrap_or(0)
+}
+
+public fn mint(s: MTStorage, to: address, id: u256, amount: u256) {
+  let m = s.bal.get(to).unwrap_or(map[u256]u256{})
+  m.set(id, m.get(id).unwrap_or(0) + amount)
+  s.bal.set(to, m)
+  Events.emit("TransferSingle", { "operator": caller, "from": 0x0, "to": to, "id": id, "amount": amount })
+}
+
+public fn safe_batch_transfer_from(s: MTStorage, from: address, to: address, ids: u256[], amts: u256[]) -> Result<(), Errors::CoreError> {
+  if ids.length != amts.length { return Err(Errors::CoreError::InvalidArgument) }
+  if from != caller && !is_approved_for_all(s, from, caller) { return Err(Errors::CoreError::Unauthorized) }
+
+  // precheck for atomicity
+  for i in 0..ids.length {
+    if balance_of(s, from, ids[i]) < amts[i] { return Err(Errors::CoreError::Unauthorized) }
+  }
+
+  for i in 0..ids.length {
+    let fm = s.bal.get(from).unwrap_or(map[u256]u256{})
+    let tm = s.bal.get(to).unwrap_or(map[u256]u256{})
+    fm.set(ids[i], fm.get(ids[i]) - amts[i])
+    tm.set(ids[i], tm.get(ids[i]).unwrap_or(0) + amts[i])
+    s.bal.set(from, fm)
+    s.bal.set(to, tm)
+  }
+
+  Events.emit("TransferBatch", { "operator": caller, "from": from, "to": to })
+  return Ok(())
+}

@@ -1,0 +1,59 @@
+module LEP100_09::MultiTokenConformance
+
+use Harness::Assert
+
+contract MockMT {
+  state { bal: map[address]map[u256]u256, op: map[address]map[address]bool }
+
+  public fn set_approval_for_all(operator: address, approved: bool) {
+    let m = self.op.get(caller).unwrap_or(map[address]bool{})
+    m.set(operator, approved)
+    self.op.set(caller, m)
+    sys.emit_event("ApprovalForAll", { "owner": caller, "operator": operator, "approved": approved })
+  }
+
+  public fn is_approved_for_all(owner: address, operator: address) -> bool {
+    return self.op.get(owner).unwrap_or(map[address]bool{}).get(operator).unwrap_or(false)
+  }
+
+  public fn mint(to: address, id: u256, amount: u256) {
+    let m = self.bal.get(to).unwrap_or(map[u256]u256{})
+    m.set(id, m.get(id).unwrap_or(0) + amount)
+    self.bal.set(to, m)
+  }
+
+  public fn balance_of(owner: address, id: u256) -> u256 {
+    return self.bal.get(owner).unwrap_or(map[u256]u256{}).get(id).unwrap_or(0)
+  }
+
+  public fn safe_batch_transfer_from(from: address, to: address, ids: u256[], amts: u256[]) {
+    require(ids.length == amts.length, "LengthMismatch")
+    require(from == caller || self.is_approved_for_all(from, caller), "NotAuthorized")
+
+    for i in 0..ids.length {
+      require(self.balance_of(from, ids[i]) >= amts[i], "InsufficientBalance")
+    }
+
+    for i in 0..ids.length {
+      let fm = self.bal.get(from).unwrap_or(map[u256]u256{})
+      let tm = self.bal.get(to).unwrap_or(map[u256]u256{})
+      fm.set(ids[i], fm.get(ids[i]) - amts[i])
+      tm.set(ids[i], tm.get(ids[i]).unwrap_or(0) + amts[i])
+      self.bal.set(from, fm)
+      self.bal.set(to, tm)
+    }
+
+    sys.emit_event("TransferBatch", { "operator": caller, "from": from, "to": to })
+  }
+}
+
+public fn test_batch_atomicity_and_len() {
+  let t = deploy(MockMT)
+  t.mint(caller, 1, 10)
+
+  Assert.expect_revert(|| { t.safe_batch_transfer_from(caller, 0xBEEF, [1,2], [1]) }, "LengthMismatch")
+
+  let before = t.balance_of(caller, 1)
+  Assert.expect_revert(|| { t.safe_batch_transfer_from(caller, 0xBEEF, [1], [11]) }, "InsufficientBalance")
+  Assert.eq_u256(t.balance_of(caller, 1), before, "no partial move")
+}

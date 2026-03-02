@@ -1,0 +1,22 @@
+module LEP100_12::MarketplaceHooksConformance
+
+use Harness::Assert
+use Harness::MockMarketplace
+
+public fn test_hook_absent_ok() {
+  let m = deploy(MockMarketplace)
+  let empty = deploy(EmptyContract)
+  m.buy(empty, 0xBEEF, 0xCAFE, 0xAAAA, 1, 100)
+}
+
+public fn test_hook_rejects_reverts() {
+  let m = deploy(MockMarketplace)
+  let hook = deploy(RejectHook)
+  Assert.expect_revert(|| { m.buy(hook, 0xBEEF, 0xCAFE, 0xAAAA, 1, 100) }, "HookRejected")
+}
+
+public fn test_hook_accepts_ok() {
+  let m = deploy(MockMarketplace)
+  let hook = deploy(AcceptHook)
+  m.buy(hook, 0xBEEF, 0xCAFE, 0xAAAA, 1, 100)
+}

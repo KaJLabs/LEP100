@@ -1,0 +1,18 @@
+module LEP100_04::ProvenanceReceiptConformance
+
+use Harness::Assert
+use Harness::MockAIProvider
+
+public fn test_receipt_hash_tamper_fails() {
+  let p = deploy(MockAIProvider)
+
+  let receipt_bytes = sys.encode("model_hash", "input_hash", "output_hash", 7, 12345)
+  let h = sys.hash_sha256(receipt_bytes)
+  p.allow_receipt_hash(h, true)
+
+  let receipt_bytes2 = sys.encode("model_hash", "input_hash", "output_hash_TAMPER", 7, 12345)
+  let h2 = sys.hash_sha256(receipt_bytes2)
+
+  Assert.eq_bool(p.verify_signature(h, "sig"), true, "valid should pass")
+  Assert.eq_bool(p.verify_signature(h2, "sig"), false, "tampered should fail")
+}

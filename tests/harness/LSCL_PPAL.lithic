@@ -1,0 +1,65 @@
+module LSCL::PPAL
+
+type bytes
+type bytes32
+type u8
+type u32
+type u64
+type address
+
+enum PPALError { InvalidProof, Replay, Revoked }
+
+struct AccountRef { chain_id: u32, addr: bytes32 }
+
+struct PPALProof {
+  commitment: bytes32
+  association_type: u8
+  scope: string
+  epoch: u64
+  nullifier: bytes32
+  proof: bytes
+  account_a: AccountRef
+  account_b: AccountRef
+}
+
+interface IPPALVerifier {
+  public fn verify(commitment: bytes32, association_type: u8, scope: string, epoch: u64, nullifier: bytes32, a: AccountRef, b: AccountRef, proof: bytes) -> bool
+}
+
+struct PPALStorage {
+  verifier: address
+  used: map[bytes32]bool
+  revoked: map[bytes32]bool
+}
+
+fn key(scope: string, association_type: u8, epoch: u64, nullifier: bytes32) -> bytes32 {
+  return sys.hash_sha256(sys.encode("PPAL_KEY", scope, association_type, epoch, nullifier))
+}
+
+public fn consume(s: PPALStorage, p: PPALProof) -> Result<(), PPALError> {
+  if s.revoked.get(p.commitment).unwrap_or(false) { return Err(PPALError::Revoked) }
+
+  let ok = IPPALVerifier(s.verifier).verify(
+    p.commitment, p.association_type, p.scope, p.epoch, p.nullifier, p.account_a, p.account_b, p.proof
+  )
+  if !ok { return Err(PPALError::InvalidProof) }
+
+  let k = key(p.scope, p.association_type, p.epoch, p.nullifier)
+  if s.used.get(k).unwrap_or(false) { return Err(PPALError::Replay) }
+  s.used.set(k, true)
+
+  sys.emit_event("PPALConsumed", {
+    "commitment": p.commitment,
+    "scope": p.scope,
+    "association_type": p.association_type,
+    "epoch": p.epoch,
+    "nullifier": p.nullifier
+  })
+
+  return Ok(())
+}
+
+public fn revoke(s: PPALStorage, commitment: bytes32) {
+  s.revoked.set(commitment, true)
+  sys.emit_event("PPALRevoked", { "commitment": commitment })
+}

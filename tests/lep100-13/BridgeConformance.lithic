@@ -1,0 +1,52 @@
+module LEP100_13::BridgeConformance
+
+use Harness::Assert
+use Harness::MockBridgeVerifier
+use LSCL::Bridge
+
+contract BridgeHarness {
+  state { s: BridgeStorage }
+
+  constructor(bridge_id: bytes32, verifier: address) {
+    self.s.bridge_id = bridge_id
+    self.s.verifier = verifier
+    self.s.supported = map[u32]bool{}
+    self.s.consumed = map[bytes32]bool{}
+  }
+
+  public fn set_supported(chain_id: u32, yes: bool) { Bridge.set_supported_chain(self.s, chain_id, yes) }
+
+  public fn mint(to: address, amount: u256, src_chain_id: u32, src_tx_hash: bytes32, message_id: bytes32, proof: bytes) {
+    Bridge.bridge_mint_common(self.s, to, amount, src_chain_id, src_tx_hash, message_id, proof).unwrap()
+  }
+}
+
+public fn test_replay_protection() {
+  let v = deploy(MockBridgeVerifier)
+  let b = deploy(BridgeHarness, 0x0101, v)
+  b.set_supported(1, true)
+
+  let msg = 0xAAAA
+  v.set_allowed(msg, true)
+
+  b.mint(0xBEEF, 100, 1, 0xBBBB, msg, "proof")
+  Assert.expect_revert(|| { b.mint(0xBEEF, 100, 1, 0xBBBB, msg, "proof") }, "Replay")
+}
+
+public fn test_invalid_proof_fails() {
+  let v = deploy(MockBridgeVerifier)
+  let b = deploy(BridgeHarness, 0x0101, v)
+  b.set_supported(1, true)
+
+  let msg = 0xCCCC
+  Assert.expect_revert(|| { b.mint(0xBEEF, 100, 1, 0xBBBB, msg, "proof") }, "InvalidProof")
+}
+
+public fn test_unsupported_chain_fails() {
+  let v = deploy(MockBridgeVerifier)
+  let b = deploy(BridgeHarness, 0x0101, v)
+
+  let msg = 0xDDDD
+  v.set_allowed(msg, true)
+  Assert.expect_revert(|| { b.mint(0xBEEF, 100, 77, 0xBBBB, msg, "proof") }, "UnsupportedChain")
+}

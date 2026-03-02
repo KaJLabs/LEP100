@@ -1,0 +1,59 @@
+module LEP100_06::NFTConformance
+
+use Harness::Assert
+use Harness::EventAsserts
+
+contract MockNFT {
+  state {
+    owner_of: map[u256]address
+    balance_of: map[address]u256
+    approved: map[u256]address
+  }
+
+  public fn mint(to: address, id: u256) {
+    require(!self.owner_of.contains(id), "AlreadyMinted")
+    self.owner_of.set(id, to)
+    self.balance_of.set(to, self.balance_of.get(to).unwrap_or(0) + 1)
+    sys.emit_event("Transfer", { "from": 0x0, "to": to, "token_id": id })
+  }
+
+  public fn owner_of_fn(id: u256) -> address {
+    require(self.owner_of.contains(id), "TokenDoesNotExist")
+    return self.owner_of.get(id)
+  }
+
+  public fn approve(to: address, id: u256) {
+    require(self.owner_of_fn(id) == caller, "NotAuthorized")
+    self.approved.set(id, to)
+    sys.emit_event("Approval", { "owner": caller, "approved": to, "token_id": id })
+  }
+
+  public fn get_approved(id: u256) -> address {
+    require(self.owner_of.contains(id), "TokenDoesNotExist")
+    return self.approved.get(id).unwrap_or(0x0)
+  }
+
+  public fn transfer_from(from: address, to: address, id: u256) {
+    let owner = self.owner_of_fn(id)
+    require(owner == from, "NotAuthorized")
+    require(caller == owner || self.get_approved(id) == caller, "NotAuthorized")
+
+    self.owner_of.set(id, to)
+    self.balance_of.set(from, self.balance_of.get(from) - 1)
+    self.balance_of.set(to, self.balance_of.get(to).unwrap_or(0) + 1)
+    self.approved.remove(id)
+    sys.emit_event("Transfer", { "from": from, "to": to, "token_id": id })
+  }
+}
+
+public fn test_transfer_clears_approval() {
+  let n = deploy(MockNFT)
+  n.mint(caller, 1)
+  n.approve(0xBEEF, 1)
+  Assert.eq_u256(n.get_approved(1) as u256, 0xBEEF as u256, "approved set")
+
+  sys.as_sender(0xBEEF, || { n.transfer_from(caller, 0xCAFE, 1) })
+
+  Assert.eq_u256(n.get_approved(1) as u256, 0x0 as u256, "approval cleared")
+  EventAsserts.expect_last("Transfer")
+}

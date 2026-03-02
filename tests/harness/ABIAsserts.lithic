@@ -1,0 +1,9 @@
+module Harness::ABIAsserts
+
+public fn supports_interface(target: address, iface: string) -> bool {
+  return sys.supports_interface(target, iface)
+}
+
+public fn require_support(target: address, iface: string) {
+  if !supports_interface(target, iface) { revert("missing interface: " + iface) }
+}

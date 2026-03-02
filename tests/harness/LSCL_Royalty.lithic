@@ -1,0 +1,39 @@
+module LSCL::Royalty
+
+type address
+type u256
+type u16
+
+const BPS_DENOM: u16 = 10000
+
+enum RoyaltyError { InvalidBps, InvalidRecipient }
+
+struct RoyaltyPart { recipient: address, bps: u16 }
+struct RoyaltyQuote { total_amount: u256, parts: RoyaltyPart[], amounts: u256[] }
+
+public fn validate_parts(parts: RoyaltyPart[]) -> Result<u16, RoyaltyError> {
+  let sum: u256 = 0
+  for i in 0..parts.length {
+    if parts[i].recipient == 0x0 { return Err(RoyaltyError::InvalidRecipient) }
+    sum = sum + parts[i].bps
+    if sum > BPS_DENOM { return Err(RoyaltyError::InvalidBps) }
+  }
+  return Ok(sum as u16)
+}
+
+public fn quote(sale_price: u256, parts: RoyaltyPart[]) -> Result<RoyaltyQuote, RoyaltyError> {
+  let sum_bps = validate_parts(parts).unwrap()
+  let total = (sale_price * (sum_bps as u256)) / (BPS_DENOM as u256)
+
+  let amounts: u256[] = []
+  let distributed: u256 = 0
+  for i in 0..parts.length {
+    let amt = (sale_price * (parts[i].bps as u256)) / (BPS_DENOM as u256)
+    amounts.push(amt)
+    distributed = distributed + amt
+  }
+  if parts.length > 0 && distributed < total {
+    amounts[0] = amounts[0] + (total - distributed)
+  }
+  return Ok(RoyaltyQuote { total_amount: total, parts: parts, amounts: amounts })
+}

@@ -1,0 +1,11 @@
+# LSCL package manifest (placeholder)
+# Replace with your actual Lithic package format if different.
+
+[package]
+name = "lscl-lep100"
+version = "0.1.0"
+authors = ["KaJ Labs"]
+license = "Apache-2.0"
+
+[dependencies]
+# add your stdlib deps here

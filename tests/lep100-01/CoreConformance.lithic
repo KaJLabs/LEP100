@@ -1,0 +1,21 @@
+module LEP100_01::CoreConformance
+
+use Harness::Assert
+use Harness::Determinism
+
+public fn test_state_hash_deterministic_no_side_effects() {
+  let h1 = Determinism.state_hash()
+  let h2 = Determinism.state_hash()
+  Determinism.eq_bytes32(h1, h2, "state hash should be stable without writes")
+}
+
+contract MissingCaps {
+  public fn do_sensitive() {
+    sys.sensitive_op()
+  }
+}
+
+public fn test_missing_capability_reverts() {
+  let c = deploy(MissingCaps)
+  Assert.expect_revert(|| { c.do_sensitive() }, "missing capability")
+}

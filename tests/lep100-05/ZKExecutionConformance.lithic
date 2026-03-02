@@ -1,0 +1,30 @@
+module LEP100_05::ZKExecutionConformance
+
+use Harness::Assert
+use Harness::MockZKVerifier
+
+contract ZKHarness {
+  state { v: address, zk_required: bool }
+
+  constructor(verifier: address, required: bool) { self.v = verifier; self.zk_required = required }
+
+  public fn fulfill(model_hash: bytes32, input_hash: bytes32, output_hash: bytes32, proof: bytes) {
+    if self.zk_required {
+      let binding = sys.hash_sha256(sys.encode("ZK_BIND", model_hash, input_hash, output_hash))
+      let ok = MockZKVerifier(self.v).verify(binding, proof)
+      require(ok, "InvalidProof")
+    }
+    sys.emit_event("Fulfilled", { "output_hash": output_hash })
+  }
+}
+
+public fn test_zk_required_rejects_invalid() {
+  let v = deploy(MockZKVerifier)
+  let h = deploy(ZKHarness, v, true)
+
+  let mh = sys.hash_sha256("m")
+  let ih = sys.hash_sha256("i")
+  let oh = sys.hash_sha256("o")
+
+  Assert.expect_revert(|| { h.fulfill(mh, ih, oh, "bad") }, "InvalidProof")
+}

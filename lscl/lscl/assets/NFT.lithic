@@ -1,0 +1,88 @@
+module LSCL::Assets::NFT
+
+use LSCL::Core::Errors
+use LSCL::Core::Events
+use LSCL::Core::InterfaceIds
+
+type address
+type u256
+
+// LEP100-6 reference storage + helpers (ERC-721-like).
+struct NFTStorage {
+  owner_of: map[u256]address
+  balance_of: map[address]u256
+  token_approvals: map[u256]address
+  operator_approvals: map[address]map[address]bool
+}
+
+public fn exists(s: NFTStorage, token_id: u256) -> bool {
+  return s.owner_of.contains(token_id)
+}
+
+public fn owner_of(s: NFTStorage, token_id: u256) -> Result<address, Errors::CoreError> {
+  if !exists(s, token_id) { return Err(Errors::CoreError::NotFound) }
+  return Ok(s.owner_of.get(token_id))
+}
+
+public fn is_approved_for_all(s: NFTStorage, owner: address, operator: address) -> bool {
+  return s.operator_approvals.get(owner).unwrap_or(map[address]bool{}).get(operator).unwrap_or(false)
+}
+
+public fn get_approved(s: NFTStorage, token_id: u256) -> Result<address, Errors::CoreError> {
+  if !exists(s, token_id) { return Err(Errors::CoreError::NotFound) }
+  return Ok(s.token_approvals.get(token_id).unwrap_or(0x0))
+}
+
+public fn approve(s: NFTStorage, to: address, token_id: u256) -> Result<(), Errors::CoreError> {
+  let o = owner_of(s, token_id).unwrap()
+  if caller != o && !is_approved_for_all(s, o, caller) { return Err(Errors::CoreError::Unauthorized) }
+  s.token_approvals.set(token_id, to)
+  Events.emit("Approval", { "owner": o, "approved": to, "token_id": token_id })
+  return Ok(())
+}
+
+public fn set_approval_for_all(s: NFTStorage, operator: address, approved: bool) {
+  let m = s.operator_approvals.get(caller).unwrap_or(map[address]bool{})
+  m.set(operator, approved)
+  s.operator_approvals.set(caller, m)
+  Events.emit("ApprovalForAll", { "owner": caller, "operator": operator, "approved": approved })
+}
+
+fn clear_approval(s: NFTStorage, token_id: u256) {
+  s.token_approvals.remove(token_id)
+}
+
+public fn transfer(s: NFTStorage, from: address, to: address, token_id: u256) -> Result<(), Errors::CoreError> {
+  let o = owner_of(s, token_id).unwrap()
+  if o != from { return Err(Errors::CoreError::Unauthorized) }
+
+  let approved = get_approved(s, token_id).unwrap_or(0x0)
+  if caller != o && caller != approved && !is_approved_for_all(s, o, caller) { return Err(Errors::CoreError::Unauthorized) }
+
+  // update balances
+  s.owner_of.set(token_id, to)
+  s.balance_of.set(from, s.balance_of.get(from).unwrap_or(0) - 1)
+  s.balance_of.set(to, s.balance_of.get(to).unwrap_or(0) + 1)
+
+  clear_approval(s, token_id)
+  Events.emit("Transfer", { "from": from, "to": to, "token_id": token_id })
+  return Ok(())
+}
+
+public fn mint(s: NFTStorage, to: address, token_id: u256) -> Result<(), Errors::CoreError> {
+  if exists(s, token_id) { return Err(Errors::CoreError::InvalidArgument) }
+  s.owner_of.set(token_id, to)
+  s.balance_of.set(to, s.balance_of.get(to).unwrap_or(0) + 1)
+  Events.emit("Transfer", { "from": 0x0, "to": to, "token_id": token_id })
+  return Ok(())
+}
+
+public fn burn(s: NFTStorage, token_id: u256) -> Result<(), Errors::CoreError> {
+  let o = owner_of(s, token_id).unwrap()
+  if caller != o { return Err(Errors::CoreError::Unauthorized) }
+  s.owner_of.remove(token_id)
+  s.balance_of.set(o, s.balance_of.get(o).unwrap_or(0) - 1)
+  clear_approval(s, token_id)
+  Events.emit("Transfer", { "from": o, "to": 0x0, "token_id": token_id })
+  return Ok(())
+}

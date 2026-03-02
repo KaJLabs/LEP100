@@ -1,0 +1,24 @@
+module LEP100_03::BudgetAccountingConformance
+
+use Harness::Assert
+
+contract BudgetHarness {
+  state { per_user_cap: u256, spent: map[address]u256 }
+
+  constructor(cap: u256) { self.per_user_cap = cap }
+
+  public fn request(max_cost: u256) {
+    let s = self.spent.get(caller).unwrap_or(0)
+    require(s + max_cost <= self.per_user_cap, "cap exceeded")
+    self.spent.set(caller, s + max_cost)
+
+    sys.bank.escrow_lock("litho", caller, max_cost, sys.hash_sha256(sys.encode("escrow", caller, max_cost))).unwrap()
+    sys.emit_event("EscrowLocked", { "user": caller, "max_cost": max_cost })
+  }
+}
+
+public fn test_per_user_cap_enforced() {
+  let h = deploy(BudgetHarness, 10)
+  h.request(7)
+  Assert.expect_revert(|| { h.request(4) }, "cap exceeded")
+}

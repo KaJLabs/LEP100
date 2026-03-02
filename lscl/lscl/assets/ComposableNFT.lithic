@@ -1,0 +1,39 @@
+module LSCL::Assets::ComposableNFT
+
+use LSCL::Core::Errors
+use LSCL::Core::Events
+
+type address
+type u256
+
+enum AssetKind { FT, NFT, MT }
+
+struct AssetRef { kind: AssetKind, contract: address, id: u256, amount: u256 }
+
+struct ComposableStorage {
+  // parent token -> list of children
+  children: map[u256]AssetRef[]
+}
+
+public fn deposit(s: ComposableStorage, parent_id: u256, child: AssetRef) -> Result<(), Errors::CoreError> {
+  // Caller authorization should be checked by parent NFT logic.
+  let lst = s.children.get(parent_id).unwrap_or([])
+  lst.push(child)
+  s.children.set(parent_id, lst)
+  Events.emit("ChildDeposited", { "parent_id": parent_id, "child_contract": child.contract, "child_id": child.id })
+  return Ok(())
+}
+
+public fn withdraw(s: ComposableStorage, parent_id: u256, idx: u256) -> Result<AssetRef, Errors::CoreError> {
+  let lst = s.children.get(parent_id).unwrap_or([])
+  if idx >= lst.length { return Err(Errors::CoreError::InvalidArgument) }
+  let child = lst[idx]
+  lst.remove(idx)
+  s.children.set(parent_id, lst)
+  Events.emit("ChildWithdrawn", { "parent_id": parent_id, "child_contract": child.contract, "child_id": child.id })
+  return Ok(child)
+}
+
+public fn children_of(s: ComposableStorage, parent_id: u256) -> AssetRef[] {
+  return s.children.get(parent_id).unwrap_or([])
+}

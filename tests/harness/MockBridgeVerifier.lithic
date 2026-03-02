@@ -1,0 +1,16 @@
+module Harness::MockBridgeVerifier
+
+type bytes
+type bytes32
+
+contract MockBridgeVerifier {
+  state { allow: map[bytes32]bool }
+
+  public fn set_allowed(message_id: bytes32, yes: bool) {
+    self.allow.set(message_id, yes)
+  }
+
+  public fn verify(message_id: bytes32, proof: bytes) -> bool {
+    return self.allow.get(message_id).unwrap_or(false)
+  }
+}
