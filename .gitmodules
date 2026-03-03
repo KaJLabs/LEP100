@@ -1,0 +1,3 @@
+[submodule "lithic"]
+	path = lithic
+	url = https://github.com/KaJLabs/lithic
