@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+html, body { height: 100%; }
+body { @apply bg-bg text-white; }
+a { @apply text-brand hover:opacity-90; }
+pre, code { font-family: theme(fontFamily.mono); }
